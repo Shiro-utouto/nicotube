@@ -76,11 +76,13 @@ body.theater{overflow:hidden}
 body.theater header,body.theater .controls,body.theater .open,body.theater .history{display:none}
 body.theater #stage{position:fixed;inset:0;z-index:10}
 body.theater #frame{height:100%;aspect-ratio:auto}
-body.theater #float{display:flex;gap:6px;position:absolute;z-index:3;
-  top:calc(6px + env(safe-area-inset-top));right:calc(6px + env(safe-area-inset-right))}
-#float button{background:rgba(20,22,30,.55);border:1px solid rgba(255,255,255,.18);color:#fff;
-  border-radius:8px;padding:6px 10px;font-size:12px;opacity:.6}
-#float button[aria-pressed="false"]{opacity:.35}
+body.theater #float{display:flex;flex-direction:column;gap:12px;position:absolute;z-index:3;
+  right:8px;top:50%;transform:translateY(-50%)}
+#float button{width:40px;height:40px;padding:0;display:grid;place-items:center;border-radius:50%;
+  background:rgba(20,22,30,.6);border:1px solid rgba(255,255,255,.2);color:#fff;opacity:.7}
+#float button svg{width:20px;height:20px}
+#float button[aria-pressed="false"]{opacity:.4}
+#float button[aria-pressed="false"] .on{display:none}
 
 /* 設定 */
 dialog{border:0;padding:0;background:var(--panel);color:var(--text);border-radius:14px;width:min(520px,calc(100vw - 24px));max-height:calc(100vh - 40px)}
@@ -117,8 +119,12 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
       <canvas id="flow"></canvas>
     </div>
     <div id="float">
-      <button id="fToggle" aria-pressed="true">コメント</button>
-      <button id="fExit">戻る</button>
+      <button id="fToggle" aria-pressed="true" aria-label="コメントの表示切り替え">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path class="on" d="M8 9h8M8 12h5"/></svg>
+      </button>
+      <button id="fExit" aria-label="全画面をやめる">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+      </button>
     </div>
   </section>
 
@@ -222,11 +228,14 @@ const flow = {
   reset(){ this.active.clear(); this.laneLast = []; },
   resize(){
     const fr = $('#frame').getBoundingClientRect();
-    const W = fr.width, Hfull = fr.height;
-    const H = Math.min(Hfull, W * 9 / 16);   // 16:9の範囲に合わせる
-    const top = (Hfull - H) / 2;
+    // 映像（16:9）を枠の中央に固定し、コメントも同じ範囲に重ねる
+    const W = Math.min(fr.width, fr.height * 16 / 9), H = W * 9 / 16;
+    const left = (fr.width - W) / 2, top = (fr.height - H) / 2;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    canvas.style.top = top + 'px';
+    for (const el of [canvas, document.getElementById('player')]){
+      if (!el) continue;
+      Object.assign(el.style, { left: left + 'px', top: top + 'px', width: W + 'px', height: H + 'px', right: 'auto', bottom: 'auto' });
+    }
     canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -503,7 +512,7 @@ async function openVideo(id){
     videoId: id, width: '100%', height: '100%',
     playerVars: { playsinline: 1, fs: 0, rel: 0, iv_load_policy: 3, modestbranding: 1, origin: location.origin },
     events: {
-      onReady(){ playerReady = true; flow.reset(); },
+      onReady(){ playerReady = true; flow.resize(); },
       onStateChange(ev){
         playing = ev.data === 1;
         clk.raw = -1;
