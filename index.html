@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>nicotube</title>
+<meta name="theme-color" content="#181a24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="nicotube">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#181a24; --panel:#212431; --line:#33374a; --text:#ebe8e1; --dim:#9296a8;
+  --accent:#f3c64d; --warn:#ef8a7a;
+  --font:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Noto Sans CJK JP",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-text-size-adjust:100%}
+body{min-height:100vh;padding:0 0 calc(24px + env(safe-area-inset-bottom))}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header{display:flex;align-items:center;justify-content:space-between;
+  padding:calc(10px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left));
+  max-width:760px;margin:0 auto}
+.logo{font-size:22px;font-weight:800;letter-spacing:.04em;margin:0;overflow:hidden;white-space:nowrap}
+.logo span{display:inline-block;animation:drift 1.1s cubic-bezier(.2,.7,.2,1) both;
+  text-shadow:0 0 1px #000,1px 1px 0 #000}
+@keyframes drift{from{transform:translateX(140px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.logo span{animation:none}}
+.icon-btn{background:none;border:0;padding:8px;border-radius:8px;color:var(--dim);display:grid;place-items:center}
+.icon-btn:active{background:var(--panel)}
+.icon-btn svg{width:24px;height:24px}
+
+main{max-width:760px;margin:0 auto}
+#stage{position:relative;background:#000}
+#frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden}
+#player,#frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+#flow{position:absolute;left:0;top:0;pointer-events:none}
+#float{display:none}
+
+.controls{padding:10px max(16px,env(safe-area-inset-left)) 0}
+.statusrow{display:flex;align-items:center;gap:8px}
+#status{flex:1;font-size:13px;color:var(--dim);line-height:1.4;min-height:1.4em}
+#status.err{color:var(--warn)}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 11px;font-size:13px;white-space:nowrap}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.post{display:flex;gap:8px;margin-top:10px}
+.field{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:16px}
+.field::placeholder{color:#6e7286}
+.primary{background:var(--accent);color:#1d1a10;border:0;border-radius:8px;padding:10px 16px;font-weight:700;white-space:nowrap}
+.primary:disabled{opacity:.4}
+.ghost{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;white-space:nowrap}
+
+.open{padding:22px max(16px,env(safe-area-inset-left)) 0}
+.open h2,.history h2{font-size:14px;font-weight:600;color:var(--dim);margin:0 0 8px}
+.open form{display:flex;gap:8px}
+
+.history{padding:24px max(16px,env(safe-area-inset-left)) 0}
+.history ul{list-style:none;margin:0;padding:0}
+.history li{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.history li:first-child{border-top:0}
+.history .item{flex:1;min-width:0;display:flex;gap:12px;align-items:center;background:none;border:0;padding:0;text-align:left}
+.history img{width:96px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:var(--panel);flex:none}
+.history .t{font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.history .x{color:var(--dim);background:none;border:0;padding:8px;font-size:18px}
+.history .none{color:var(--dim);font-size:14px}
+
+/* 疑似全画面 */
+body.theater{overflow:hidden}
+body.theater header,body.theater .controls,body.theater .open,body.theater .history{display:none}
+body.theater #stage{position:fixed;inset:0;z-index:10}
+body.theater #frame{height:100%;aspect-ratio:auto}
+body.theater #float{display:flex;gap:6px;position:absolute;z-index:3;
+  top:calc(6px + env(safe-area-inset-top));right:calc(6px + env(safe-area-inset-right))}
+#float button{background:rgba(20,22,30,.55);border:1px solid rgba(255,255,255,.18);color:#fff;
+  border-radius:8px;padding:6px 10px;font-size:12px;opacity:.6}
+#float button[aria-pressed="false"]{opacity:.35}
+
+/* 設定 */
+dialog{border:0;padding:0;background:var(--panel);color:var(--text);border-radius:14px;width:min(520px,calc(100vw - 24px));max-height:calc(100vh - 40px)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.sheet{padding:18px 18px 16px}
+.sheet h2{margin:0 0 14px;font-size:18px}
+.row{padding:12px 0;border-top:1px solid var(--line)}
+.row label,.row .lab{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
+.row p{margin:6px 0 0;font-size:12px;color:var(--dim);line-height:1.5}
+.row select,.row input[type=text],.row input[type=password]{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:16px}
+.row input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;background:var(--bg);border:0;border-left:1px solid var(--line);padding:8px 0;font-size:14px}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#1d1a10;font-weight:700}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.switch input{width:22px;height:22px;accent-color:var(--accent)}
+.sheet .end{display:flex;justify-content:space-between;gap:8px;padding-top:14px;border-top:1px solid var(--line)}
+.danger{background:none;border:1px solid var(--line);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1 class="logo"><span>nicotube</span></h1>
+  <button class="icon-btn" id="openSettings" aria-label="設定">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+  </button>
+</header>
+
+<main>
+  <section id="stage">
+    <div id="frame">
+      <div id="player"></div>
+      <canvas id="flow"></canvas>
+    </div>
+    <div id="float">
+      <button id="fToggle" aria-pressed="true">コメント</button>
+      <button id="fExit">戻る</button>
+    </div>
+  </section>
+
+  <div class="controls">
+    <div class="statusrow">
+      <div id="status">YouTubeのURLを貼ると、ここにコメントが流れます</div>
+      <button class="chip" id="toggle" aria-pressed="true">コメント</button>
+      <button class="chip" id="theaterBtn">全画面</button>
+    </div>
+    <form class="post" id="postForm">
+      <input class="field" id="postText" maxlength="60" placeholder="今の場面にコメントする" autocomplete="off" enterkeyhint="send">
+      <button class="primary" id="postBtn" disabled>流す</button>
+    </form>
+  </div>
+
+  <section class="open">
+    <h2>動画を開く</h2>
+    <form id="openForm">
+      <input class="field" id="url" inputmode="url" placeholder="youtube.com/watch?v=… または youtu.be/…" autocomplete="off" enterkeyhint="go">
+      <button type="button" class="ghost" id="paste">貼り付け</button>
+      <button class="primary">開く</button>
+    </form>
+  </section>
+
+  <section class="history">
+    <h2>最近見た動画</h2>
+    <ul id="hist"></ul>
+  </section>
+</main>
+
+<dialog id="settings">
+  <form method="dialog" class="sheet" id="setForm">
+    <h2 tabindex="-1" autofocus>設定</h2>
+    <div class="row">
+      <label for="sKey">YouTube Data API キー</label>
+      <input type="password" id="sKey" autocomplete="off" spellcheck="false" placeholder="AIza…">
+      <p>コメント欄の取得に使います。キーはこの端末の中だけに保存され、GitHubには上がりません。</p>
+    </div>
+    <div class="row">
+      <label for="sPages">読み込むコメント数</label>
+      <select id="sPages">
+        <option value="1">約100件</option>
+        <option value="3">約300件</option>
+        <option value="5">約500件</option>
+        <option value="10">約1000件</option>
+      </select>
+      <p>人気順に読み込みます。100件ごとにAPIの使用量を1消費します（1日10,000まで）。</p>
+    </div>
+    <div class="row switch">
+      <div><span class="lab">時刻なしのコメントも流す</span><p style="margin:0">「1:23 ここ好き」のような時刻つきはその場面で、時刻なしは動画全体にちらして流します。</p></div>
+      <input type="checkbox" id="sUntimed">
+    </div>
+    <div class="row">
+      <span class="lab">文字の大きさ</span>
+      <div class="seg" id="sSize">
+        <button type="button" data-v="s">小</button><button type="button" data-v="m">中</button><button type="button" data-v="l">大</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="lab">流れる速さ</span>
+      <div class="seg" id="sSpeed">
+        <button type="button" data-v="5.5">ゆっくり</button><button type="button" data-v="4">ふつう</button><button type="button" data-v="3">速い</button>
+      </div>
+    </div>
+    <div class="row">
+      <label for="sOpacity">コメントの濃さ</label>
+      <input type="range" id="sOpacity" min="0.2" max="1" step="0.05">
+    </div>
+    <div class="row">
+      <label for="sNg">NGワード</label>
+      <input type="text" id="sNg" placeholder="カンマ区切り（例: ネタバレ, 宣伝）" autocomplete="off">
+    </div>
+    <div class="end">
+      <button type="button" class="danger" id="clearMine">この動画の自分のコメントを消す</button>
+      <button class="primary" id="saveSettings">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem('nicotube.'+k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('nicotube.'+k, JSON.stringify(v)); }catch(e){} }
+};
+
+/* ---------- 設定 ---------- */
+const DEF = { key:'', pages:3, untimed:true, size:'m', speed:4, opacity:0.9, ng:'', show:true };
+const S = Object.assign({}, DEF, LS.get('settings', {}));
+const saveS = () => LS.set('settings', S);
+
+/* ---------- コメントの流れ（canvas） ---------- */
+const canvas = $('#flow'), ctx = canvas.getContext('2d');
+const LANES = { s:15, m:11, l:8 };
+const flow = {
+  list: [], active: new Map(), laneLast: [], lastT: -1,
+  W: 0, H: 0, L: 11, laneH: 0, fp: 0,
+  set(list){ this.list = list; },
+  reset(){ this.active.clear(); this.laneLast = []; },
+  resize(){
+    const fr = $('#frame').getBoundingClientRect();
+    const W = fr.width, Hfull = fr.height;
+    const H = Math.min(Hfull, W * 9 / 16);   // 16:9の範囲に合わせる
+    const top = (Hfull - H) / 2;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvas.style.top = top + 'px';
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.W = W; this.H = H;
+    this.L = LANES[S.size] || 11;
+    this.pad = Math.round(H * 0.025);
+    this.laneH = (H - this.pad * 2) / this.L;
+    this.fp = Math.max(11, Math.round(this.laneH * 0.8));
+    this.reset();
+  },
+  font(){ return `700 ${this.fp}px ${getComputedStyle(document.body).fontFamily}`; },
+  width(c){
+    if (c._fp !== this.fp){ c._w = ctx.measureText(c.text).width; c._fp = this.fp; }
+    return c._w;
+  },
+  x(c, t){ const D = S.speed; return this.W - (t - c.t) / D * (this.W + c._w); },
+  assign(c){
+    const D = S.speed;
+    for (let i = 0; i < this.L; i++){
+      const p = this.laneLast[i];
+      if (!p || !this.active.has(p)) return i;
+      const tailIn = this.x(p, c.t) + p._w < this.W - 8;
+      const noCatch = this.W - (p.t + D - c.t) / D * (this.W + c._w) >= 0;
+      if (tailIn && noCatch) return i;
+    }
+    return Math.floor(Math.random() * this.L);
+  },
+  draw(t){
+    const { W, H } = this;
+    ctx.clearRect(0, 0, W, H);
+    if (!S.show || !this.list.length || !W) { this.lastT = t; return; }
+    const D = S.speed;
+    if (t < this.lastT - 0.05 || t - this.lastT > 1.5) this.reset(); // シーク
+    this.lastT = t;
+    // 表示中の範囲 (t-D, t]
+    const lo = bisect(this.list, t - D), hi = bisect(this.list, t);
+    for (const c of this.active.keys()){
+      if (c.t <= t - D || c.t > t) this.active.delete(c);
+    }
+    ctx.font = this.font();
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(2, this.fp * 0.13);
+    ctx.globalAlpha = S.opacity;
+    for (let i = lo; i < hi; i++){
+      const c = this.list[i];
+      this.width(c);
+      let lane = this.active.get(c);
+      if (lane === undefined){
+        lane = this.assign(c);
+        this.active.set(c, lane);
+        const p = this.laneLast[lane];
+        if (!p || !this.active.has(p) || p.t <= c.t) this.laneLast[lane] = c;
+      }
+      const x = this.x(c, t), y = this.pad + (lane + 0.5) * this.laneH;
+      if (x > W || x + c._w < 0) continue;
+      ctx.strokeStyle = 'rgba(0,0,0,.72)';
+      ctx.strokeText(c.text, x, y);
+      ctx.fillStyle = c.mine ? '#f3c64d' : '#fff';
+      ctx.fillText(c.text, x, y);
+      if (c.mine){
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#f3c64d';
+        ctx.strokeRect(x - 4, y - this.laneH / 2 + 1, c._w + 8, this.laneH - 2);
+        ctx.lineWidth = Math.max(2, this.fp * 0.13);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+};
+function bisect(list, t){ // 最初に c.t > t となる位置
+  let a = 0, b = list.length;
+  while (a < b){ const m = (a + b) >> 1; if (list[m].t <= t) a = m + 1; else b = m; }
+  return a;
+}
+new ResizeObserver(() => flow.resize()).observe($('#frame'));
+
+/* ---------- 何も開いていない時のデモ ---------- */
+const DEMO = ['ここにコメントが流れます','wwwww','ここ好き','8888888','うぽつ','時刻つきコメントはその場面で流れます','鳥肌','神回','きたああああ','わかる','!?','全画面は横向きにするだけ']
+  .map((text, i) => ({ text, t: i * 0.9 + (i % 3) * 0.3 }));
+const DEMO_LEN = 14;
+
+/* ---------- 再生時間（なめらかに補間） ---------- */
+let player = null, playerReady = false, playing = false;
+const clk = { raw: -1, base: 0, at: 0, shown: 0, last: 0 };
+function clock(now){
+  if (!cur.id) return (now / 1000) % DEMO_LEN;
+  if (!player || !playerReady) return 0;
+  let raw = 0, rate = 1;
+  try { raw = player.getCurrentTime() || 0; rate = player.getPlaybackRate() || 1; } catch(e){}
+  if (raw !== clk.raw){ clk.raw = raw; clk.base = raw; clk.at = now; }
+  const target = playing ? clk.base + (now - clk.at) / 1000 * rate : clk.base;
+  const dt = (now - clk.last) / 1000; clk.last = now;
+  if (Math.abs(target - clk.shown) > 1) clk.shown = target;
+  else {
+    if (playing) clk.shown += Math.min(dt, 0.1) * rate;
+    clk.shown += (target - clk.shown) * 0.12;
+  }
+  return clk.shown;
+}
+let lastNow = performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  if (!cur.id && flow.list !== DEMO) flow.set(DEMO);
+  flow.draw(clock(now));
+  lastNow = now;
+}
+requestAnimationFrame(loop);
+
+/* ---------- URL → 動画ID ---------- */
+function videoId(s){
+  s = (s || '').trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  try {
+    const u = new URL(/^https?:/i.test(s) ? s : 'https://' + s);
+    const h = u.hostname.replace(/^(www|m|music)\./, '');
+    if (h === 'youtu.be') return (u.pathname.split('/')[1] || '').slice(0, 11) || null;
+    if (h.endsWith('youtube.com') || h.endsWith('youtube-nocookie.com')){
+      const v = u.searchParams.get('v'); if (v) return v.slice(0, 11);
+      const m = u.pathname.match(/^\/(shorts|live|embed|v)\/([\w-]{11})/); if (m) return m[2];
+    }
+  } catch(e){}
+  const m = s.match(/(?:v=|youtu\.be\/|shorts\/|live\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+/* ---------- コメントの解釈 ---------- */
+const TS = /(^|[^\d:])((?:\d{1,2}:)?\d{1,2}:[0-5]\d)(?![\d:])/g;
+const toSec = s => s.split(':').reduce((a, n) => a * 60 + (+n), 0);
+const norm = s => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/：/g, ':');
+const clean = s => s.replace(/^@\S+\s*/, '').replace(/^[\s\-~〜～:|｜・>＞→]+|[\s\-~〜～:|｜・<＜←]+$/g, '').replace(/\s+/g, ' ').trim();
+const cut = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+function hash(str){ let h = 2166136261; for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+function parseComments(raw, duration){
+  const ng = S.ng.split(/[,、\n]/).map(w => w.trim()).filter(Boolean);
+  const timed = [], untimed = [];
+  for (const r of raw){
+    const text = norm(r.text || '');
+    if (ng.some(w => text.includes(w))) continue;
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const rest = clean(lines.map(l => l.replace(TS, '$1 ')).join(' '));
+    let found = false;
+    for (const line of lines){
+      TS.lastIndex = 0;
+      const m = TS.exec(line);
+      if (!m) continue;
+      found = true;
+      const t = toSec(m[2]);
+      let body = clean(line.replace(TS, '$1 '));
+      if (!body) body = rest;
+      if (!body) continue;
+      timed.push({ t, text: cut(body, 50) });
+    }
+    if (!found && S.untimed){
+      const body = clean(lines.join(' '));
+      if (body && body.length <= 80) untimed.push({ text: body, like: r.like || 0, id: r.id });
+    }
+  }
+  const out = duration ? timed.filter(c => c.t <= duration + 1) : timed;
+  const timedCount = out.length;
+  if (untimed.length && duration > 5){
+    const cap = Math.max(40, Math.floor(duration * 0.6));
+    untimed.sort((a, b) => b.like - a.like);
+    for (const u of untimed.slice(0, cap)){
+      out.push({ t: (hash(u.id) % 100000) / 100000 * (duration - 4) + 1, text: u.text });
+    }
+  }
+  return { list: out, timed: timedCount };
+}
+
+/* ---------- YouTube Data API ---------- */
+const API = 'https://www.googleapis.com/youtube/v3/';
+async function api(path, params, signal){
+  const q = new URLSearchParams(Object.assign({ key: S.key }, params));
+  const res = await fetch(API + path + '?' + q, { signal });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok){
+    const e = new Error('api'); e.reason = json.error?.errors?.[0]?.reason || json.error?.status || res.status;
+    e.detail = json.error?.message || ''; throw e;
+  }
+  return json;
+}
+function apiError(e){
+  const r = String(e.reason || '');
+  if (r === 'commentsDisabled') return 'この動画はコメント欄がオフになっています';
+  if (r.includes('quota')) return '今日のAPI使用量の上限に達しました（日本時間の夕方にリセット）';
+  if (r === 'keyInvalid' || /API key not valid/i.test(e.detail)) return 'APIキーが正しくありません。設定を確認してください';
+  if (r === 'forbidden' || r.includes('Blocked') || /referer|blocked/i.test(e.detail)) return 'APIキーの制限で、このサイトからの利用が許可されていません';
+  if (r === 'videoNotFound') return '動画が見つかりません';
+  return 'コメントを読み込めませんでした（' + r + '）';
+}
+const parseISO = d => { const m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(d || ''); return m ? (+m[1]||0)*3600 + (+m[2]||0)*60 + (+m[3]||0) : 0; };
+
+/* ---------- 状態 ---------- */
+let cur = { id: null, raw: [], duration: 0, base: [], abort: null };
+const status = (msg, err) => { const el = $('#status'); el.textContent = msg; el.classList.toggle('err', !!err); };
+const mineOf = id => LS.get('mine.' + id, []);
+function rebuild(){
+  const { list, timed } = parseComments(cur.raw, cur.duration);
+  cur.base = list;
+  cur.timed = timed;
+  merge();
+}
+function merge(){
+  const mine = mineOf(cur.id).map(m => ({ t: m.t, text: m.text, mine: true }));
+  const all = cur.base.concat(mine).sort((a, b) => a.t - b.t);
+  flow.set(all); flow.reset();
+  return all.length;
+}
+function summary(){
+  const n = cur.base.length, mine = mineOf(cur.id).length;
+  if (!S.key) return status(mine ? `自分のコメント ${mine}件` : '設定でAPIキーを入れると、コメント欄のコメントが流れます');
+  status(`コメント ${n}件（時刻つき ${cur.timed || 0}件）` + (mine ? `・自分 ${mine}件` : ''));
+}
+
+async function loadComments(id){
+  cur.abort?.abort();
+  const ac = new AbortController(); cur.abort = ac;
+  cur.raw = []; cur.base = []; cur.timed = 0; merge();
+  if (!S.key){ summary(); return; }
+  status('コメントを読み込んでいます…');
+  try {
+    const v = await api('videos', { part: 'snippet,contentDetails', id }, ac.signal);
+    const item = v.items?.[0];
+    if (!item) throw Object.assign(new Error(), { reason: 'videoNotFound' });
+    cur.duration = parseISO(item.contentDetails.duration) || cur.duration;
+    addHistory(id, item.snippet.title);
+    let token = '', raw = [];
+    for (let p = 0; p < S.pages; p++){
+      const r = await api('commentThreads', { part: 'snippet,replies', videoId: id, maxResults: 100, order: 'relevance', textFormat: 'plainText', pageToken: token }, ac.signal);
+      for (const th of r.items || []){
+        const s = th.snippet.topLevelComment.snippet;
+        raw.push({ id: th.id, text: s.textOriginal, like: s.likeCount });
+        for (const rp of th.replies?.comments || []) raw.push({ id: rp.id, text: rp.snippet.textOriginal, like: rp.snippet.likeCount });
+      }
+      if (cur.id !== id) return;
+      cur.raw = raw; rebuild(); status(`コメントを読み込んでいます… ${raw.length}件`);
+      token = r.nextPageToken; if (!token) break;
+    }
+    summary();
+  } catch(e){
+    if (e.name === 'AbortError') return;
+    status(apiError(e), true);
+  }
+}
+
+/* ---------- プレーヤー ---------- */
+let apiReady;
+function ytApi(){
+  if (!apiReady) apiReady = new Promise((res, rej) => {
+    window.onYouTubeIframeAPIReady = res;
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = () => rej(new Error('load'));
+    document.head.appendChild(s);
+  });
+  return apiReady;
+}
+async function openVideo(id){
+  if (!id) return status('YouTubeのURLとして読み取れませんでした', true);
+  cur.id = id; cur.duration = 0;
+  try { history.replaceState(null, '', '?v=' + id); } catch(e){}
+  $('#postBtn').disabled = !$('#postText').value.trim();
+  addHistory(id);
+  applyTheater();
+  loadComments(id);
+  try { await ytApi(); } catch(e){ return status('YouTubeのプレーヤーを読み込めませんでした。通信を確認してください', true); }
+  if (cur.id !== id) return;
+  if (player && playerReady){ player.cueVideoById(id); return; }
+  if (player) return;
+  playerReady = false;
+  player = new YT.Player('player', {
+    videoId: id, width: '100%', height: '100%',
+    playerVars: { playsinline: 1, fs: 0, rel: 0, iv_load_policy: 3, modestbranding: 1, origin: location.origin },
+    events: {
+      onReady(){ playerReady = true; flow.reset(); },
+      onStateChange(ev){
+        playing = ev.data === 1;
+        clk.raw = -1;
+        const d = player.getDuration?.();
+        if (d && !cur.duration){ cur.duration = d; rebuild(); }
+        if (ev.data === 1 || ev.data === 5){
+          const t = player.getVideoData?.().title; if (t) addHistory(cur.id, t);
+        }
+      },
+      onError(ev){
+        const m = { 2:'動画のURLが正しくありません', 5:'この動画はこの環境で再生できません', 100:'動画が見つからないか、非公開です', 101:'この動画は埋め込み再生が許可されていません', 150:'この動画は埋め込み再生が許可されていません' }[ev.data];
+        status(m || 'この動画を再生できません（エラー ' + ev.data + '）', true);
+      }
+    }
+  });
+}
+
+/* ---------- 自分のコメント ---------- */
+$('#postText').addEventListener('input', e => { $('#postBtn').disabled = !cur.id || !e.target.value.trim(); });
+$('#postForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = cut(clean($('#postText').value), 60);
+  if (!text || !cur.id) return;
+  const t = Math.max(0, flow.lastT);
+  const mine = mineOf(cur.id); mine.push({ t, text }); LS.set('mine.' + cur.id, mine);
+  merge(); summary();
+  $('#postText').value = ''; $('#postBtn').disabled = true;
+});
+$('#clearMine').addEventListener('click', () => {
+  if (!cur.id) return;
+  if (!confirm('この動画で書いた自分のコメントをすべて消しますか？')) return;
+  try { localStorage.removeItem('nicotube.mine.' + cur.id); } catch(e){}
+  merge(); summary();
+});
+
+/* ---------- 履歴 ---------- */
+function addHistory(id, title){
+  let h = LS.get('history', []);
+  const old = h.find(x => x.id === id);
+  h = h.filter(x => x.id !== id);
+  h.unshift({ id, title: title || old?.title || '', at: Date.now() });
+  LS.set('history', h.slice(0, 30)); renderHistory();
+}
+function renderHistory(){
+  const ul = $('#hist'), h = LS.get('history', []);
+  ul.textContent = '';
+  if (!h.length){ const li = document.createElement('li'); li.className = 'none'; li.textContent = 'まだありません'; ul.append(li); return; }
+  for (const x of h){
+    const li = document.createElement('li');
+    const b = document.createElement('button'); b.className = 'item';
+    const img = new Image(); img.loading = 'lazy'; img.alt = ''; img.src = `https://i.ytimg.com/vi/${x.id}/mqdefault.jpg`;
+    const t = document.createElement('span'); t.className = 't'; t.textContent = x.title || x.id;
+    b.append(img, t);
+    b.onclick = () => { openVideo(x.id); scrollTo({ top: 0, behavior: 'smooth' }); };
+    const del = document.createElement('button'); del.className = 'x'; del.setAttribute('aria-label', '履歴から消す'); del.textContent = '×';
+    del.onclick = () => { LS.set('history', LS.get('history', []).filter(y => y.id !== x.id)); renderHistory(); };
+    li.append(b, del); ul.append(li);
+  }
+}
+
+/* ---------- 開く ---------- */
+$('#openForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const id = videoId($('#url').value);
+  openVideo(id);
+  if (id){ $('#url').value = ''; $('#url').blur(); scrollTo({ top: 0, behavior: 'smooth' }); }
+});
+$('#paste').addEventListener('click', async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    $('#url').value = t;
+    const id = videoId(t);
+    if (id){ openVideo(id); $('#url').value = ''; scrollTo({ top: 0, behavior: 'smooth' }); }
+    else status('コピーした内容がYouTubeのURLではありません', true);
+  } catch(e){ $('#url').focus(); }
+});
+
+/* ---------- コメント表示 / 全画面 ---------- */
+function setShow(v){
+  S.show = v; saveS();
+  for (const b of [$('#toggle'), $('#fToggle')]) b.setAttribute('aria-pressed', String(v));
+}
+$('#toggle').onclick = () => setShow(!S.show);
+$('#fToggle').onclick = () => setShow(!S.show);
+setShow(S.show);
+
+const landscape = matchMedia('(orientation: landscape) and (max-height: 540px)');
+let theaterManual = null;
+function applyTheater(){
+  const on = theaterManual ?? (landscape.matches && !!cur.id);
+  document.body.classList.toggle('theater', on);
+  requestAnimationFrame(() => flow.resize());
+}
+landscape.addEventListener('change', () => { theaterManual = null; applyTheater(); });
+$('#theaterBtn').onclick = () => { theaterManual = true; applyTheater(); };
+$('#fExit').onclick = () => { theaterManual = false; applyTheater(); };
+
+/* ---------- 設定画面 ---------- */
+const dlg = $('#settings');
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+function segInit(el, key, num){
+  el.querySelectorAll('button').forEach(b => {
+    b.onclick = () => el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  });
+  el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(String(S[key]) === b.dataset.v)));
+}
+const segVal = el => el.querySelector('[aria-pressed="true"]')?.dataset.v;
+$('#openSettings').onclick = () => {
+  $('#sKey').value = S.key; $('#sPages').value = String(S.pages); $('#sUntimed').checked = S.untimed;
+  $('#sOpacity').value = S.opacity; $('#sNg').value = S.ng;
+  segInit($('#sSize'), 'size'); segInit($('#sSpeed'), 'speed');
+  $('#clearMine').hidden = !cur.id;
+  dlg.showModal();
+};
+$('#saveSettings').addEventListener('click', () => {
+  const keyChanged = $('#sKey').value.trim() !== S.key, pagesChanged = +$('#sPages').value !== S.pages;
+  S.key = $('#sKey').value.trim(); S.pages = +$('#sPages').value; S.untimed = $('#sUntimed').checked;
+  S.opacity = +$('#sOpacity').value; S.ng = $('#sNg').value;
+  S.size = segVal($('#sSize')) || 'm'; S.speed = +(segVal($('#sSpeed')) || 4);
+  saveS(); flow.resize();
+  if (cur.id){ if (keyChanged || pagesChanged || !cur.raw.length) loadComments(cur.id); else { rebuild(); summary(); } }
+});
+
+/* ---------- 起動 ---------- */
+renderHistory();
+const start = new URLSearchParams(location.search).get('v');
+if (start && /^[\w-]{11}$/.test(start)) openVideo(start);
+else if (!S.key) status('右上の設定でAPIキーを入れてから、動画のURLを貼ってください');
+})();
+</script>
+</body>
+</html>
