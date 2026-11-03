@@ -469,6 +469,7 @@ async function loadComments(id){
     summary();
   } catch(e){
     if (e.name === 'AbortError') return;
+    if (e instanceof TypeError) return status('Googleとの通信が止められました。広告ブロッカーやフィルタを確認してください', true);
     status(apiError(e), true);
   }
 }
@@ -493,7 +494,7 @@ async function openVideo(id){
   addHistory(id);
   applyTheater();
   loadComments(id);
-  try { await ytApi(); } catch(e){ return status('YouTubeのプレーヤーを読み込めませんでした。通信を確認してください', true); }
+  try { await ytApi(); } catch(e){ return status('YouTubeのプレーヤーを読み込めませんでした。広告ブロッカーやフィルタでYouTubeへの通信が止められている可能性があります', true); }
   if (cur.id !== id) return;
   if (player && playerReady){ player.cueVideoById(id); return; }
   if (player) return;
