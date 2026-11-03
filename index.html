@@ -103,6 +103,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 .sheet .end{display:flex;justify-content:space-between;gap:8px;padding-top:14px;border-top:1px solid var(--line)}
 .ver{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:var(--dim)}
 .ver b{color:var(--text);font-weight:600}
+.ver .ghost{color:var(--text);font-size:14px;padding:9px 14px}
 .danger{background:none;border:1px solid var(--line);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:13px}
 </style>
 </head>
@@ -644,9 +645,10 @@ $('#saveSettings').addEventListener('click', () => {
 });
 
 /* ---------- バージョン / 更新 ---------- */
-const VERSION = '2026-11-04 02:15';
+const VERSION = '2026-11-04 02:20';
 $('#ver').textContent = VERSION;
 $('#update').onclick = () => {
+  $('#update').textContent = '読み込み中…';
   const q = new URLSearchParams();
   if (cur.id) q.set('v', cur.id);
   q.set('r', Date.now().toString(36));   // URLを変えてキャッシュを避ける
