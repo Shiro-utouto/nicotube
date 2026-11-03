@@ -101,6 +101,8 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .switch input{width:22px;height:22px;accent-color:var(--accent)}
 .sheet .end{display:flex;justify-content:space-between;gap:8px;padding-top:14px;border-top:1px solid var(--line)}
+.ver{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:var(--dim)}
+.ver b{color:var(--text);font-weight:600}
 .danger{background:none;border:1px solid var(--line);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:13px}
 </style>
 </head>
@@ -196,6 +198,10 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <div class="row">
       <label for="sNg">NGワード</label>
       <input type="text" id="sNg" placeholder="カンマ区切り（例: ネタバレ, 宣伝）" autocomplete="off">
+    </div>
+    <div class="row ver">
+      <span>バージョン <b id="ver"></b></span>
+      <button type="button" class="ghost" id="update">最新版に更新</button>
     </div>
     <div class="end">
       <button type="button" class="danger" id="clearMine">この動画の自分のコメントを消す</button>
@@ -635,6 +641,16 @@ $('#saveSettings').addEventListener('click', () => {
   saveS(); flow.resize();
   if (cur.id){ if (keyChanged || pagesChanged || !cur.raw.length) loadComments(cur.id); else { rebuild(); summary(); } }
 });
+
+/* ---------- バージョン / 更新 ---------- */
+const VERSION = '2026-11-04 02:05';
+$('#ver').textContent = VERSION;
+$('#update').onclick = () => {
+  const q = new URLSearchParams();
+  if (cur.id) q.set('v', cur.id);
+  q.set('r', Date.now().toString(36));   // URLを変えてキャッシュを避ける
+  location.replace('./?' + q);
+};
 
 /* ---------- 起動 ---------- */
 renderHistory();
