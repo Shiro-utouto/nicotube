@@ -2,12 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nicotube</title>
 <meta name="theme-color" content="#181a24">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="nicotube">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png?v=3">
@@ -610,6 +610,7 @@ let theaterManual = null;
 function applyTheater(){
   const on = theaterManual ?? (landscape.matches && !!cur.id);
   document.body.classList.toggle('theater', on);
+  document.documentElement.style.background = on ? '#000' : '';
   requestAnimationFrame(() => flow.resize());
 }
 landscape.addEventListener('change', () => { theaterManual = null; applyTheater(); });
@@ -643,7 +644,7 @@ $('#saveSettings').addEventListener('click', () => {
 });
 
 /* ---------- バージョン / 更新 ---------- */
-const VERSION = '2026-11-04 02:05';
+const VERSION = '2026-11-04 02:15';
 $('#ver').textContent = VERSION;
 $('#update').onclick = () => {
   const q = new URLSearchParams();
